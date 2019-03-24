@@ -146,7 +146,7 @@ if __name__ == '__main__':
 #    初始化对象
     text_pre = TextPretreatment(text_category_list)   
 #    待读入文件目录
-    file_dir = '../datasets/TanCorp-12-Txt/TanCorp-12-Txt/'
+    file_dir = './datasets/TanCorp-12-Txt/TanCorp-12-Txt/'
     file_result = './result_file/result'
 #    CHI输出文件
     file_CHI = './result_file/CHIresult'
