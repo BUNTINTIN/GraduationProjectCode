@@ -25,6 +25,14 @@ class TextPretreatment():
     sum = 1
     def __init__(self, text_category_list):
         self.text_category_list = text_category_list
+#   转换文件编码格式
+    def trans_coding(self, line):
+        try:
+            line = line.strip('\r\n')
+            return line.decode('gbk', "ignore").encode('utf8')
+        except Exception:
+            print ('改行不能由gbk转换成utf8：' + line)
+
     #生成category对应词频
     def get_term_frequency(self, file_dir, file_result):
         fp_result = open(file_result, 'w')
@@ -32,12 +40,12 @@ class TextPretreatment():
             counter = 1
             self.obj_category_TF[category] = {}
             self.obj_category_file_termcount[category] = {}
-            while counter <= sum:
+            while counter <= self.sum:
                 self.obj_category_TF[category][counter] = {}
                 self.obj_category_file_termcount[category][counter] = 0
                 fp = open(file_dir + category + '/' + str(counter) + '.txt', 'r')
                 for line in fp:
-                    line = line.strip('\r\n')
+                    line = self.trans_coding(line)
                     word_list = line.split()
                     for word in word_list: 
                         if word in self.obj_category_TF[category][counter]:
@@ -50,7 +58,7 @@ class TextPretreatment():
 
         fp_result.write(json.dumps(self.obj_category_TF))
         fp_result.close()
-        print (self.obj_category_file_termcount)
+#        print (self.obj_category_file_termcount)
         return self.obj_category_TF
 #    生成category对应词卡方
     def get_term_CHI(self, file_CHI, file_CHI_param):
@@ -121,7 +129,7 @@ class TextPretreatment():
                 for term in self.obj_category_file_CHI_param[category][file_num]:
                     try:
                         tf = float(self.obj_category_TF[category][file_num][term]) / float(self.obj_category_file_termcount[category][file_num])
-                        idf = math.log(float(N) / float((self.obj_category_file_CHI_param[category][file_num][term]['a'] + self.obj_category_file_CHI_param[category][file_num][term]['b'])))
+                        idf = math.log(float(self.N) / float((self.obj_category_file_CHI_param[category][file_num][term]['a'] + self.obj_category_file_CHI_param[category][file_num][term]['b'])))
                         self.obj_category_file_TF_IDF[category][file_num][term] = tf * idf
                     except Exception:
                         sys.stderr.write(traceback.format_exc())
