@@ -63,14 +63,16 @@ class KnnClass():
                         self.kd_tree['vector'] = map_value_vector[median_term_value][0]
 #                        print (json.dumps(map_value_vector))
 #print (json.dumps(self.kd_tree['vector']))
+                        print (self.print_map_value(map_value_vector))
                         del map_value_vector[median_term_value][0]
 #print (json.dumps(map_value_vector))
                         self.kd_tree['value'] = median_term_value
+                        
                         self.kd_tree['left'] = self.gen_kd_node(median_term_value, map_value_vector, True) 
                         self.kd_tree['right'] = self.gen_kd_node(median_term_value, map_value_vector, False)
 #print (json.dumps(list_value))
                         print (json.dumps(self.kd_tree))
-#                       print (json.dumps(self.list_term_feature))
+                        print (json.dumps(self.list_term_feature))
 #print (json.dumps(self.kd_tree))
 #这里break需要考虑下?
                     break
@@ -83,17 +85,17 @@ class KnnClass():
         return_vsm = {}
         return_flag = False
         kd_tree = {}
-        if len(map_value_vector_last) == 1:
-            return_flag = True
-            for term_value in map_value_vector_last:
-                return_vsm = map_value_vector_last[term_value][0]
-                if len(map_value_vector_last[term_value]) > 1:
-                    break_flag = Fasle
-        if return_flag:
-            kd_tree['vector'] = return_vsm
-            return kd_tree
+        # if len(map_value_vector_last) == 1:
+        #     return_flag = True
+        #     for term_value in map_value_vector_last:
+        #         return_vsm = map_value_vector_last[term_value][0]
+        #         if len(map_value_vector_last[term_value]) > 1:
+        #             break_flag = Fasle
+        # if return_flag:
+        #     kd_tree['vector'] = return_vsm
+        #     return kd_tree
         for term_value in map_value_vector_last:
-            if (term_value <= median_term_value and is_left) or (term_value > median_term_value and (not is_left)):
+            if (term_value < median_term_value and is_left) or (term_value >= median_term_value and (not is_left)):
                 for key_vsm, vsm in enumerate(map_value_vector_last[term_value]):
                     for term in vsm:
                         #特征值对应的特征向量本身
@@ -107,12 +109,14 @@ class KnnClass():
                                 map_value_vector[value_key] = []
                             map_value_vector[value_key].append(vsm)
                             list_value.append(value_key)
+
                             #再次遍历，获取中位数
                             for term_value_again in map_value_vector_last:
-                                if (term_value_again <= median_term_value and is_left) or (term_value_again > median_term_value and (not is_left)):
+
+                                if (term_value_again < median_term_value and is_left) or (term_value_again >= median_term_value and (not is_left)):
                                     for key_vsm_again, vsm_again in enumerate(map_value_vector_last[term_value_again]):
                                         try:
-                                            if key_vsm != key_vsm_again:
+                                            if term_value != term_value_again or key_vsm != key_vsm_again:
                                                 if term in vsm_again:
                                                     value_key = vsm_again[term]
                                                 else:
@@ -127,7 +131,12 @@ class KnnClass():
                             median_term_value = list_value[int(len(list_value)/2)]
                             kd_tree['value'] = median_term_value
                             kd_tree['vector'] = map_value_vector[median_term_value][0]
+                            print (self.print_map_value(map_value_vector))
                             del map_value_vector[median_term_value][0]
+                            #有几种情况：
+                            #中位数对应一个且没有其他value值对应vector
+                            #中位数对应一个有一侧value对应vector或者两侧 ->一侧无法满足直接return null
+                            #中位数对应多个
                             if len(map_value_vector[median_term_value]) == 0:
                                 if len(map_value_vector) == 1:
                                     return kd_tree
@@ -136,6 +145,29 @@ class KnnClass():
                             kd_tree['left'] = self.gen_kd_node(median_term_value, map_value_vector, True)
                             kd_tree['right'] = self.gen_kd_node(median_term_value, map_value_vector, False)
                             return kd_tree
+        return 'null'
+
+    """
+    输出map中value中少量信息
+    """
+    def print_map_value(self, map_value_vector):
+        line = '{\n'
+        for key in map_value_vector:
+            line  = line + '\t' + str(key) + ':[\n'
+            
+            for vector in map_value_vector[key]:
+                line = line + '\t\t\t{\n'
+                count = 1
+                for term in vector:
+                    line = line + '\t\t\t\t' + str(term) + ':' + str(vector[term]) + '\n'
+                    count += 1
+                    if count > 5:
+                        break
+                line = line + '\t\t\t}\n'
+            line = line + '\t\n'
+        line = line + '}'
+        print (line)
+
     def test(self):
         print ('test success')
     
