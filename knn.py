@@ -82,8 +82,8 @@ class KnnClass():
     递归函数，生成kd树左右节点
     """
     def gen_kd_node(self, median_term_value, map_value_vector_last, is_left = True):
-        return_vsm = {}
-        return_flag = False
+        # return_vsm = {}
+        # return_flag = False
         kd_tree = {}
         # if len(map_value_vector_last) == 1:
         #     return_flag = True
@@ -144,6 +144,7 @@ class KnnClass():
                                     del map_value_vector[median_term_value]
                             kd_tree['left'] = self.gen_kd_node(median_term_value, map_value_vector, True)
                             kd_tree['right'] = self.gen_kd_node(median_term_value, map_value_vector, False)
+                            #return 保证最外层for循环只进行一次
                             return kd_tree
         return 'null'
 
