@@ -11,7 +11,10 @@ import knn
 
 class TextPretreatment():
     text_category_list = []
+    #停用词列表
     list_stop_word = []
+    #特征列表
+    list_feature = []
     #category对应词频
     obj_category_TF = {}
     #category对应文件下切词总数
@@ -28,13 +31,23 @@ class TextPretreatment():
     sum = 1
     def __init__(self, text_category_list):
         self.text_category_list = text_category_list
-#   转换文件编码格式
-    def trans_coding(self, line):
+        reload(sys)
+        sys.setdefaultencoding('utf8')
+    """
+    转换文件编码格式
+    """
+    def trans_coding(self, line, coding='gbk'):
         try:
             line = line.strip('\n')
-            return line.decode('gbk', "ignore").encode('utf8')
+            if coding == 'gbk':
+                return line.decode('gbk', "ignore").encode('utf8')
+            else:
+                return line.decode('utf8', "ignore").encode('utf8')
         except Exception:
-            sys.stderr.write ('该行不能由gbk转换成utf8：' + line + ';最终的解决方案是返回原编码行')
+            if coding == 'gbk':
+                sys.stderr.write ('该行不能由gbk转换成utf8：' + line + ';最终的解决方案是返回原编码行')
+            else:
+                sys.stderr.write ('该行不能由utf8转换成Unicode编码再转换成utf8：' + line + ';最终的解决方案是返回原编码行')
             return line
     """
     根据停用词文件生产停用词list
@@ -43,7 +56,7 @@ class TextPretreatment():
         fp_stop_word = open(file_stop_word, 'r')
         for line in fp_stop_word:
 #需要通用处理行吗？
-            line = line.strip('\n')
+            line = self.trans_coding(line.strip('\n'), 'utf8')
             if line not in self.list_stop_word:
                 self.list_stop_word.append(line)
 #        print (json.dumps(self.list_stop_word))
@@ -62,15 +75,18 @@ class TextPretreatment():
                 self.obj_category_file_termcount[category][counter] = 0
                 fp = open(file_dir + category + '/' + str(counter) + '.txt', 'r')
                 for line in fp:
+                    # 文件默认是gbk格式
                     line = self.trans_coding(line)
                     word_list = line.split()
                     for word in word_list:
                         if word not in self.list_stop_word:
+                            if word not in self.list_feature:
+                                self.list_feature.append(word)
                             if word in self.obj_category_TF[category][counter]:
-                                self.obj_category_TF[category][counter][word] = self.obj_category_TF[category][counter][word] + 1
+                                self.obj_category_TF[category][counter][word] += 1
                             else:
                                 self.obj_category_TF[category][counter][word] = 1;
-                            self.obj_category_file_termcount[category][counter] = self.obj_category_file_termcount[category][counter] + 1
+                            self.obj_category_file_termcount[category][counter] +=  1
                 fp.close()  
                 counter = counter + 1        
 
@@ -187,7 +203,12 @@ class TextPretreatment():
     """
     def get_obj_category_file_vsm(self):
         return self.obj_category_file_CHI
-    
+
+    """
+    """
+    def get_list_feature(self):
+        return self.list_feature
+
 if __name__ == '__main__':
     text_category_list = ['财经','地域','电脑','房产','教育']
     #category对应词频
@@ -219,10 +240,20 @@ if __name__ == '__main__':
     text_pre.get_VSM(file_VSM)
     
     obj_category_file_vsm = text_pre.get_obj_category_file_vsm()
+    list_feature = text_pre.get_list_feature()
+    print (json.dumps(list_feature))
 #   初始化knn对象
-    knn_instance = knn.KnnClass()
-    knn_instance.gen_kd_tree(obj_category_file_vsm)
-    
+    knn_model = knn.KnnClass()
+    file_kd = './result_file/kd_tree_dict_result'
+    file_list_feature = './result_file/list_feature_json'
+    knn_model.gen_kd_tree(obj_category_file_vsm, list_feature, file_kd, file_list_feature)
+    # knn_model.do_classification(obj_category_file_vsm)
+
+    knn_classification = knn.KnnClass()
+    knn_classification.gen_kd_tree_by_json(file_kd, file_list_feature)
+    knn_classification.do_classification(obj_category_file_vsm)
+
+
     
     
    
