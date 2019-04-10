@@ -3,12 +3,18 @@ import json
 import math
 import sys
 import traceback
+#引入外部python文件
+import knn
 
 #fp = open('..\datasets\TanCorp-12-Txt\TanCorp-12-Txt\财经\0.txt', 'r')
 #['财经','地域','电脑','房产','教育','科技','汽车','人才','体育','卫生','艺术','娱乐']
 
 class TextPretreatment():
     text_category_list = []
+    #停用词列表
+    list_stop_word = []
+    #特征列表
+    list_feature = []
     #category对应词频
     obj_category_TF = {}
     #category对应文件下切词总数
@@ -25,15 +31,39 @@ class TextPretreatment():
     sum = 1
     def __init__(self, text_category_list):
         self.text_category_list = text_category_list
-#   转换文件编码格式
-    def trans_coding(self, line):
+        reload(sys)
+        sys.setdefaultencoding('utf8')
+    """
+    转换文件编码格式
+    """
+    def trans_coding(self, line, coding='gbk'):
         try:
-            line = line.strip('\r\n')
-            return line.decode('gbk', "ignore").encode('utf8')
+            line = line.strip('\n')
+            if coding == 'gbk':
+                return line.decode('gbk', "ignore").encode('utf8')
+            else:
+                return line.decode('utf8', "ignore").encode('utf8')
         except Exception:
-            print ('改行不能由gbk转换成utf8：' + line)
-
-    #生成category对应词频
+            if coding == 'gbk':
+                sys.stderr.write ('该行不能由gbk转换成utf8：' + line + ';最终的解决方案是返回原编码行')
+            else:
+                sys.stderr.write ('该行不能由utf8转换成Unicode编码再转换成utf8：' + line + ';最终的解决方案是返回原编码行')
+            return line
+    """
+    根据停用词文件生产停用词list
+    """
+    def get_stop_list(self, file_stop_word):
+        fp_stop_word = open(file_stop_word, 'r')
+        for line in fp_stop_word:
+#需要通用处理行吗？
+            line = self.trans_coding(line.strip('\n'), 'utf8')
+            if line not in self.list_stop_word:
+                self.list_stop_word.append(line)
+#        print (json.dumps(self.list_stop_word))
+    
+    """
+    生成category对应词频
+    """
     def get_term_frequency(self, file_dir, file_result):
         fp_result = open(file_result, 'w')
         for category in text_category_list:
@@ -45,22 +75,29 @@ class TextPretreatment():
                 self.obj_category_file_termcount[category][counter] = 0
                 fp = open(file_dir + category + '/' + str(counter) + '.txt', 'r')
                 for line in fp:
+                    # 文件默认是gbk格式
                     line = self.trans_coding(line)
                     word_list = line.split()
-                    for word in word_list: 
-                        if word in self.obj_category_TF[category][counter]:
-                            self.obj_category_TF[category][counter][word] = self.obj_category_TF[category][counter][word] + 1
-                        else:
-                            self.obj_category_TF[category][counter][word] = 1;
-                        self.obj_category_file_termcount[category][counter] = self.obj_category_file_termcount[category][counter] + 1
+                    for word in word_list:
+                        if word not in self.list_stop_word:
+                            if word not in self.list_feature:
+                                self.list_feature.append(word)
+                            if word in self.obj_category_TF[category][counter]:
+                                self.obj_category_TF[category][counter][word] += 1
+                            else:
+                                self.obj_category_TF[category][counter][word] = 1;
+                            self.obj_category_file_termcount[category][counter] +=  1
                 fp.close()  
                 counter = counter + 1        
 
         fp_result.write(json.dumps(self.obj_category_TF))
         fp_result.close()
 #        print (self.obj_category_file_termcount)
-        return self.obj_category_TF
-#    生成category对应词卡方
+#        return self.obj_category_TF
+
+    """
+    生成category对应词卡方
+    """
     def get_term_CHI(self, file_CHI, file_CHI_param):
 #    特征提取都是以文件为单位
 #    卡方检验
@@ -109,12 +146,11 @@ class TextPretreatment():
         fp_CHI_result.close()
         fp_CHI_param_result.write(json.dumps(self.obj_category_file_CHI_param))
         fp_CHI_param_result.close()
-        return self.obj_category_file_CHI
-#    获得obj_category_file_CHI_param
-    def get_term_CHI_param(self):
-        return self.obj_category_file_CHI_param
-    
-#    tf-IDF权重 
+#       return self.obj_category_file_CHI
+
+    """
+    tf-IDF权重
+    """
     def get_term_TFIDF(self, file_TF_IDF):
 #       文档总数
         self.N = 0
@@ -139,9 +175,39 @@ class TextPretreatment():
     def test(self):
         print (self.text_category_list)
 
+    """
+    获得vsm，赋值到self.obj_category_file_CHI
+    """
+    def get_VSM(self, file_VSM):
+        fp_VSM_result = open(file_VSM, 'w')
+        for category in self.obj_category_file_CHI:
+            for file_num in self.obj_category_file_CHI[category]:
+                for term in self.obj_category_file_CHI[category][file_num]:
+                    try:
+                        self.obj_category_file_CHI[category][file_num][term] *= self.obj_category_file_TF_IDF[category][file_num][term] 
+                    except Exception:
+                        sys.stderr.write('相关数据无法获取,category:' + str(category)  + 'file_num:' + str(file_num)  + 'term:' + str(term))
+                        sys.stderr.write(traceback.format_exc())
+                        break
+        fp_VSM_result.write(json.dumps(self.obj_category_file_CHI))
+        fp_VSM_result.close()
+
+    """
+    获得obj_category_file_CHI_param
+    """
+    def get_term_CHI_param(self):
+        return self.obj_category_file_CHI_param
    
+    """
+    获取obj_category_file_vsm
+    """
+    def get_obj_category_file_vsm(self):
+        return self.obj_category_file_CHI
 
-
+    """
+    """
+    def get_list_feature(self):
+        return self.list_feature
 
 if __name__ == '__main__':
     text_category_list = ['财经','地域','电脑','房产','教育']
@@ -151,8 +217,12 @@ if __name__ == '__main__':
     obj_category_file_CHI = {}
     #category对应词卡方a,b,c,d
     obj_category_file_CHI_param = {}
+#   最终的obj_category_file_vsm
+    obj_category_file_vsm = {}
 #    初始化对象
-    text_pre = TextPretreatment(text_category_list)   
+    text_pre = TextPretreatment(text_category_list)
+#   停用词表文件路径
+    file_stop_word = './functional_file/stopword.txt'
 #    待读入文件目录
     file_dir = './datasets/TanCorp-12-Txt/TanCorp-12-Txt/'
     file_result = './result_file/result'
@@ -160,14 +230,30 @@ if __name__ == '__main__':
     file_CHI = './result_file/CHIresult'
     file_CHI_param = './result_file/CHI_param_result'
     file_TF_IDF = './result_file/TF_IDF_result'
+#    VSM输出文件
+    file_VSM = './result_file/VSM_result'
 #    特征提取流程
-    obj_category_TF = text_pre.get_term_frequency(file_dir, file_result)
-    obj_category_file_CHI = text_pre.get_term_CHI(file_CHI, file_CHI_param)
-    obj_category_file_CHI_param = text_pre.get_term_CHI_param()
+    text_pre.get_stop_list(file_stop_word)
+    text_pre.get_term_frequency(file_dir, file_result)
+    text_pre.get_term_CHI(file_CHI, file_CHI_param)
     text_pre.get_term_TFIDF(file_TF_IDF)
+    text_pre.get_VSM(file_VSM)
     
-    
-    
+    obj_category_file_vsm = text_pre.get_obj_category_file_vsm()
+    list_feature = text_pre.get_list_feature()
+    print (json.dumps(list_feature))
+#   初始化knn对象
+    knn_model = knn.KnnClass()
+    file_kd = './result_file/kd_tree_dict_result'
+    file_list_feature = './result_file/list_feature_json'
+    knn_model.gen_kd_tree(obj_category_file_vsm, list_feature, file_kd, file_list_feature)
+    # knn_model.do_classification(obj_category_file_vsm)
+
+    knn_classification = knn.KnnClass()
+    knn_classification.gen_kd_tree_by_json(file_kd, file_list_feature)
+    knn_classification.do_classification(obj_category_file_vsm)
+
+
     
     
    
